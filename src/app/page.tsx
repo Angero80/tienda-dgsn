@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { applyMaxOpacity, PASTEL_BANNER_TEXT_COLOR } from '../lib/colorUtils';
 
 type Product = {
   id: number;
@@ -231,7 +232,9 @@ export default function Home() {
           className="relative w-full overflow-hidden rounded-lg shadow-lg cursor-pointer"
           style={{
             height: '230px',
-            backgroundColor: banners[bannerIndex]?.background_color || '#fff',
+            backgroundColor: banners[bannerIndex]?.background_color
+              ? applyMaxOpacity(banners[bannerIndex].background_color)
+              : '#fff',
           }}
           onClick={() => {
             if (banners[bannerIndex]?.product_id) {
@@ -258,7 +261,9 @@ export default function Home() {
                     justifyContent: 'center',
                     gap: '40px',
                     padding: '0 60px',
-                    backgroundColor: banner.background_color || '#fff',
+                    backgroundColor: banner.background_color
+                      ? applyMaxOpacity(banner.background_color)
+                      : '#fff',
                   }}
                 >
                   {/* Imagen - a la izquierda, centrada, sin recortar */}
@@ -293,7 +298,7 @@ export default function Home() {
                     style={{
                       maxWidth: bannerImage ? '480px' : '100%',
                       flex: bannerImage ? '1 1 0' : 'initial',
-                      color: banner.text_color || '#111',
+                      color: PASTEL_BANNER_TEXT_COLOR,
                       textAlign: 'left',
                       lineHeight: '1.2',
                     }}

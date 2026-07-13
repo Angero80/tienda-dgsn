@@ -12,6 +12,9 @@ export default function BusinessSettingsPage() {
   const [uploadingRut, setUploadingRut] = useState(false);
   const [ciiuDescription, setCiiuDescription] = useState<string>('');
   const [ciiuNotFound, setCiiuNotFound] = useState(false);
+  const [ciiuSector, setCiiuSector] = useState<string>('');
+  const [ciiuTipoOperativo, setCiiuTipoOperativo] = useState<string>('');
+  const [unitsActivatedMsg, setUnitsActivatedMsg] = useState<string>('');
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -31,32 +34,96 @@ export default function BusinessSettingsPage() {
   }, []);
 
   // ✅ Busca automáticamente la descripción del código CIIU escrito,
-  // apenas tiene los 4 dígitos completos.
+  // apenas tiene los 4 dígitos completos. Además resuelve el sector
+  // económico y tipo operativo (bienes/servicios/mixta) que ya quedaron
+  // clasificados en ciiu_activities, y dispara la activación automática
+  // de las unidades de medida DIAN típicas de ese sector.
   useEffect(() => {
     const code = settings['ciiu_code'] || '';
     if (code.length !== 4) {
       setCiiuDescription('');
       setCiiuNotFound(false);
+      setCiiuSector('');
+      setCiiuTipoOperativo('');
+      setUnitsActivatedMsg('');
       return;
     }
 
     const lookup = async () => {
       const { data } = await supabase
         .from('ciiu_activities')
-        .select('description')
+        .select('description, sector, tipo_operativo')
         .eq('code', code)
         .maybeSingle();
 
       if (data?.description) {
         setCiiuDescription(data.description);
         setCiiuNotFound(false);
+        setCiiuSector(data.sector || '');
+        setCiiuTipoOperativo(data.tipo_operativo || '');
+
+        if (data.sector && data.tipo_operativo) {
+          await activateUnitsForSector(data.sector, data.tipo_operativo);
+        }
       } else {
         setCiiuDescription('');
         setCiiuNotFound(true);
+        setCiiuSector('');
+        setCiiuTipoOperativo('');
+        setUnitsActivatedMsg('');
       }
     };
     lookup();
   }, [settings['ciiu_code']]);
+
+  // ✅ Unidades DIAN sugeridas por sector/tipo operativo. Estas listas no
+  // provienen de ningún catálogo oficial DIAN (no existe uno que cruce
+  // CIIU con unidades) — son una decisión de negocio acordada con el
+  // dueño de la plataforma. Los códigos sí son oficiales (Anexo Técnico
+  // Resolución 000042 de 2020, sección 6.3.5.1 / dian_units_catalog).
+  const UNIT_CODES_BY_PROFILE: Record<string, string[]> = {
+    // Sector primario (agro, ganadería, pesca, minería)
+    primario: ['KGM', 'TNE', 'LTR', 'HAR', '94', 'DZN'],
+    // Sector secundario (manufactura, construcción)
+    secundario: ['94', 'KGM', 'MTR', 'MTK', 'MTQ', 'BX', 'DZN'],
+    // Terciario + bienes → Comercio (sección G)
+    'terciario:bienes': ['94', 'BX', 'DZN', 'EA'],
+    // Terciario + servicios/mixta → Servicios
+    'terciario:servicios': ['94', 'HUR', 'DAY', 'LUN'],
+  };
+
+  const resolveUnitCodesFor = (sector: string, tipoOperativo: string): string[] => {
+    if (sector === 'primario') return UNIT_CODES_BY_PROFILE.primario;
+    if (sector === 'secundario') return UNIT_CODES_BY_PROFILE.secundario;
+    // Terciario: Comercio (bienes) vs. Servicios (servicios o mixta, ej.
+    // restaurantes/hoteles que igual facturan principalmente por unidad/hora/día)
+    if (sector === 'terciario' && tipoOperativo === 'bienes') {
+      return UNIT_CODES_BY_PROFILE['terciario:bienes'];
+    }
+    return UNIT_CODES_BY_PROFILE['terciario:servicios'];
+  };
+
+  const activateUnitsForSector = async (sector: string, tipoOperativo: string) => {
+    const codes = resolveUnitCodesFor(sector, tipoOperativo);
+    if (codes.length === 0) return;
+
+    const { error, data } = await supabase
+      .from('dian_units_catalog')
+      .update({ active: true })
+      .in('code', codes)
+      .select('code, name');
+
+    if (error) {
+      setUnitsActivatedMsg('');
+      console.error('Error activando unidades DIAN por sector:', error);
+      return;
+    }
+
+    const names = (data || []).map((u) => u.name).join(', ');
+    setUnitsActivatedMsg(
+      `Se activaron automáticamente estas unidades en tu catálogo: ${names}. Puedes ajustar cuáles usar en Configuración → Unidades DIAN.`
+    );
+  };
 
   const updateLocal = (key: string, value: string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -266,6 +333,24 @@ export default function BusinessSettingsPage() {
               {ciiuDescription && (
                 <p className="text-sm text-green-700 bg-green-50 rounded px-3 py-2 mt-2">
                   ✅ {ciiuDescription}
+                </p>
+              )}
+              {ciiuSector && (
+                <p className="text-sm text-blue-700 bg-blue-50 rounded px-3 py-2 mt-2">
+                  💡 Sugerencia según tu actividad económica: sector{' '}
+                  <strong>{ciiuSector}</strong>
+                  {ciiuTipoOperativo && (
+                    <>
+                      {' '}— clasificación típica: <strong>{ciiuTipoOperativo}</strong>
+                    </>
+                  )}
+                  . El selector de arriba (Sector del Negocio) no se cambia
+                  solo; ajústalo tú si aplica.
+                </p>
+              )}
+              {unitsActivatedMsg && (
+                <p className="text-sm text-cyan-700 bg-cyan-50 rounded px-3 py-2 mt-2">
+                  📏 {unitsActivatedMsg}
                 </p>
               )}
               {ciiuNotFound && (

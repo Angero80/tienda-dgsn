@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
+import { applyMaxOpacity, PASTEL_BANNER_TEXT_COLOR } from '../../../lib/colorUtils';
 
 type Product = {
   id: number;
@@ -356,33 +357,23 @@ export default function BannersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Color de fondo
-                </label>
-                <input
-                  type="color"
-                  className="w-full h-10 border rounded"
-                  value={form.background_color}
-                  onChange={(e) =>
-                    setForm({ ...form, background_color: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Color de texto
-                </label>
-                <input
-                  type="color"
-                  className="w-full h-10 border rounded"
-                  value={form.text_color}
-                  onChange={(e) =>
-                    setForm({ ...form, text_color: e.target.value })
-                  }
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Color de fondo
+              </label>
+              <input
+                type="color"
+                className="w-full h-10 border rounded"
+                value={form.background_color}
+                onChange={(e) =>
+                  setForm({ ...form, background_color: e.target.value })
+                }
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                El color se suaviza automáticamente a un tono pastel si es
+                muy oscuro o muy saturado, para proteger la legibilidad del
+                banner. El texto siempre se muestra en gris oscuro.
+              </p>
             </div>
 
             <div>
@@ -437,12 +428,12 @@ export default function BannersPage() {
             </label>
             <div
               className="relative w-full h-56 rounded-lg overflow-hidden flex"
-              style={{ backgroundColor: form.background_color }}
+              style={{ backgroundColor: applyMaxOpacity(form.background_color) }}
             >
               {/* Panel de texto (color sólido, garantiza contraste) */}
               <div
                 className="flex-1 flex flex-col justify-center px-5 py-4 min-w-0"
-                style={{ color: form.text_color }}
+                style={{ color: PASTEL_BANNER_TEXT_COLOR }}
               >
                 {form.discount_text_top && (
                   <p className="text-xl font-extrabold mb-1 leading-tight">
@@ -502,7 +493,7 @@ export default function BannersPage() {
                 >
                   <div
                     className="w-24 h-16 rounded flex-shrink-0 flex overflow-hidden"
-                    style={{ backgroundColor: banner.background_color }}
+                    style={{ backgroundColor: applyMaxOpacity(banner.background_color) }}
                   >
                     <div className="flex-1 bg-white flex items-center justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
