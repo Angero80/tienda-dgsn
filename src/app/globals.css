@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/*
+  NOTA: Se removió intencionalmente el bloque
+  @media (prefers-color-scheme: dark) que venía por defecto
+  en el template de Next.js. Ese bloque cambiaba el color
+  del texto y del fondo automáticamente según la configuración
+  del sistema operativo/navegador del usuario, lo que causaba
+  texto casi invisible (gris muy claro) sobre las tarjetas
+  blancas del panel admin y la tienda cuando el visitante
+  tenía el modo oscuro activado.
+
+  Esta app usa un diseño de tema claro fijo (fondo blanco,
+  texto oscuro) en todas sus pantallas, así que forzamos ese
+  comportamiento con color-scheme: light y quitamos el switch
+  automático.
+*/
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/*
+  ✅ Regla de impresión GLOBAL (no dentro de <style jsx> de ningún
+  componente). Esto es intencional: styled-jsx solo aplica sus reglas
+  a los elementos que ESE componente específico renderiza, así que un
+  "ocultar todo" definido dentro de DataTable.tsx nunca alcanzaba al
+  sidebar (que vive en admin/layout.tsx) ni a filtros extra que viven
+  fuera de DataTable. Puesto aquí en globals.css, sí aplica de verdad
+  a toda la página sin importar qué componente renderizó cada cosa.
+
+  Cualquier página que quiera imprimir solo una parte de su contenido
+  debe envolver ese contenido en un elemento con className="print-only".
+*/
+.print-only {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-only,
+  .print-only * {
+    visibility: visible !important;
+  }
+
+  .print-only {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    z-index: 9999 !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    font-family: Arial, sans-serif !important;
+    color: #000 !important;
+    margin: 0 !important;
+  }
+
+  .print-only h1 {
+    font-size: 18px !important;
+    margin-bottom: 15px !important;
+    font-weight: bold !important;
+    color: #000 !important;
+  }
+
+  .print-only table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 10px !important;
+    font-size: 12px !important;
+  }
+
+  .print-only th,
+  .print-only td {
+    border: 1px solid #ccc !important;
+    padding: 6px 8px !important;
+    text-align: left !important;
+  }
+
+  .print-only th {
+    background-color: #f5f5f5 !important;
+    font-weight: bold !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 1cm;
+  }
+}
