@@ -31,16 +31,39 @@ export default function DianUnitsPage() {
     setLoading(true);
     setErrorMsg('');
 
-    const { data, error } = await supabase
-      .from('dian_units_catalog')
-      .select('id, code, name, active, created_at')
-      .order('name');
+    // Supabase/PostgREST impone un tope de filas por respuesta (típicamente
+    // 1000) sin importar el .range() que pidamos desde el cliente. Para
+    // traer la tabla completa (~1080 filas) sin depender de configurar ese
+    // límite en el servidor, paginamos nosotros mismos en bloques de 1000
+    // hasta que una página venga incompleta (señal de que ya no hay más).
+    const PAGE_SIZE = 1000;
+    let allRows: DianUnit[] = [];
+    let from = 0;
+    let keepGoing = true;
 
-    if (error) {
-      setErrorMsg('Error cargando el catálogo: ' + error.message);
-    } else {
-      setUnits(data || []);
+    while (keepGoing) {
+      const { data, error } = await supabase
+        .from('dian_units_catalog')
+        .select('id, code, name, active, created_at')
+        .order('id')
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) {
+        setErrorMsg('Error cargando el catálogo: ' + error.message);
+        setLoading(false);
+        return;
+      }
+
+      allRows = allRows.concat(data || []);
+
+      if (!data || data.length < PAGE_SIZE) {
+        keepGoing = false; // última página, ya trajimos todo
+      } else {
+        from += PAGE_SIZE;
+      }
     }
+
+    setUnits(allRows);
     setLoading(false);
   }, []);
 

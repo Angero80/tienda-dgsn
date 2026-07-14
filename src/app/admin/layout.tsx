@@ -36,7 +36,8 @@ import {
   BarChart3,
   FileSearch,
   TrendingUp,
-  Database
+  Database,
+  Ruler
 } from 'lucide-react';
 
 export default function AdminLayout({
@@ -356,6 +357,13 @@ export default function AdminLayout({
       >
         <FileText className="w-4 h-4 mr-3 text-yellow-400" />
         Doc. Equivalentes
+      </Link>
+      <Link
+        href="/admin/config/dian-units"
+        className="flex items-center px-6 py-2 text-gray-300 hover:bg-gray-600 text-sm"
+      >
+        <Ruler className="w-4 h-4 mr-3 text-cyan-400" />
+        Unidades Medida
       </Link>
       <Link
         href="/admin/users"
