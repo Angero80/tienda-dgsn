@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
+import { useAlertDialog } from '../components/AlertDialogProvider';
 
 // Tipos mejorados
 type MercadoPagoConfig = {
@@ -76,6 +77,7 @@ const GATEWAYS: Gateway[] = [
 ];
 
 export default function PaymentsPage() {
+  const dialog = useAlertDialog();
   const [settings, setSettings] = useState<PaymentSettings>({
     active_gateway: null,
   });
@@ -143,9 +145,9 @@ export default function PaymentsPage() {
       );
 
     if (error) {
-      alert('Error al guardar: ' + error.message);
+      await dialog.alert('Error al guardar: ' + error.message, { variant: 'danger', title: 'Error' });
     } else {
-      alert('✅ Configuración de pagos guardada');
+      await dialog.alert('Configuración de pagos guardada', { variant: 'success', title: 'Guardado' });
       sendConfirmationEmail();
     }
     setIsSaving(false);

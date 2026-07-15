@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../../lib/supabaseClient';
+import { useAlertDialog } from '../../components/AlertDialogProvider';
 
 export default function BusinessSettingsPage() {
+  const dialog = useAlertDialog();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [rutFile, setRutFile] = useState<File | null>(null);
   const [uploadingRut, setUploadingRut] = useState(false);
   const [ciiuDescription, setCiiuDescription] = useState<string>('');
@@ -88,17 +89,26 @@ export default function BusinessSettingsPage() {
     secundario: ['94', 'KGM', 'MTR', 'MTK', 'MTQ', 'BX', 'DZN'],
     // Terciario + bienes → Comercio (sección G)
     'terciario:bienes': ['94', 'BX', 'DZN', 'EA'],
-    // Terciario + servicios/mixta → Servicios
-    'terciario:servicios': ['94', 'HUR', 'DAY', 'LUN'],
+    // Terciario + servicios → Servicios (código 'Mes' corregido: era 'LUN',
+    // que ya no existe en el catálogo tras la limpieza; el código real es 'M36')
+    'terciario:servicios': ['94', 'HUR', 'DAY', 'M36'],
   };
+  // Terciario + mixta (ej. Construcción F, Alojamiento/Comida I) → combina
+  // ambos perfiles, no solo el de servicios.
+  UNIT_CODES_BY_PROFILE['terciario:mixta'] = Array.from(
+    new Set([...UNIT_CODES_BY_PROFILE['terciario:bienes'], ...UNIT_CODES_BY_PROFILE['terciario:servicios']])
+  );
 
   const resolveUnitCodesFor = (sector: string, tipoOperativo: string): string[] => {
     if (sector === 'primario') return UNIT_CODES_BY_PROFILE.primario;
     if (sector === 'secundario') return UNIT_CODES_BY_PROFILE.secundario;
-    // Terciario: Comercio (bienes) vs. Servicios (servicios o mixta, ej.
-    // restaurantes/hoteles que igual facturan principalmente por unidad/hora/día)
+    // Terciario: Comercio (bienes) vs. Servicios vs. Mixta (combina ambos,
+    // ej. restaurantes/hoteles que venden productos y facturan por horas/días)
     if (sector === 'terciario' && tipoOperativo === 'bienes') {
       return UNIT_CODES_BY_PROFILE['terciario:bienes'];
+    }
+    if (sector === 'terciario' && tipoOperativo === 'mixta') {
+      return UNIT_CODES_BY_PROFILE['terciario:mixta'];
     }
     return UNIT_CODES_BY_PROFILE['terciario:servicios'];
   };
@@ -150,7 +160,10 @@ export default function BusinessSettingsPage() {
     setUploadingRut(false);
 
     if (uploadError) {
-      alert('Error subiendo el RUT: ' + uploadError.message);
+      await dialog.alert('Error subiendo el RUT: ' + uploadError.message, {
+        variant: 'danger',
+        title: 'Error',
+      });
       return settings['rut_file_url'] || '';
     }
 
@@ -158,16 +171,25 @@ export default function BusinessSettingsPage() {
     return data.publicUrl;
   };
 
-  const handleSaveClick = () => {
+  const handleSaveClick = async () => {
     if (!rutFile && !settings['rut_file_url']) {
-      alert('Debes subir el RUT antes de guardar.');
+      await dialog.alert('Debes subir el RUT antes de guardar.', {
+        variant: 'warning',
+        title: 'Falta un dato',
+      });
       return;
     }
-    setShowConfirmModal(true);
+
+    const confirmed = await dialog.confirm(
+      'Cambiar el sector del negocio afecta qué módulos y campos ven tus usuarios (por ejemplo, Compras se oculta si eliges "Servicios").\n\nAsegúrate de que toda la información sea correcta antes de continuar.',
+      { variant: 'warning', confirmText: 'Acepto, guardar cambios' }
+    );
+    if (!confirmed) return;
+
+    await performSave();
   };
 
-  const handleConfirmSave = async () => {
-    setShowConfirmModal(false);
+  const performSave = async () => {
     setSaving(true);
 
     const rutUrl = await uploadRutIfNeeded();
@@ -213,7 +235,10 @@ export default function BusinessSettingsPage() {
 
     setSettings((prev) => ({ ...prev, ...keysToSave, rut_file_url: rutUrl }));
     setSaving(false);
-    alert('Datos de la empresa guardados correctamente');
+    await dialog.alert('Datos de la empresa guardados correctamente', {
+      variant: 'success',
+      title: 'Guardado',
+    });
   };
 
   if (loading) return <p className="p-6 text-black">Cargando...</p>;
@@ -514,35 +539,6 @@ export default function BusinessSettingsPage() {
           </div>
         </form>
       </div>
-
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-red-600 font-semibold mb-2">⚠️ Advertencia Importante</h3>
-            <p className="text-sm text-gray-600 mb-3">
-              Cambiar el sector del negocio afecta qué módulos y campos ven tus
-              usuarios (por ejemplo, Compras se oculta si eliges "Servicios").
-            </p>
-            <p className="text-sm text-gray-600 mb-4">
-              Asegúrate de que toda la información sea correcta antes de continuar.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2 rounded bg-gray-200 text-gray-800"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmSave}
-                className="px-4 py-2 rounded bg-red-600 text-white"
-              >
-                Acepto, guardar cambios
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

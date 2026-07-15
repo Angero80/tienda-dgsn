@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useAlertDialog } from '../../components/AlertDialogProvider';
 
 // Datos simulados
 const salesByHour = [
@@ -24,6 +25,7 @@ const topProducts = [
 const cashiers = ['Todos', 'John Doe', 'Jane Smith'];
 
 export default function ReportPage() {
+  const dialog = useAlertDialog();
   const [dateFrom, setDateFrom] = useState('2025-08-14');
   const [dateTo, setDateTo] = useState('2025-08-14');
   const [timeFrom, setTimeFrom] = useState('08:00');
@@ -108,7 +110,7 @@ export default function ReportPage() {
       doc.save(`informe_turno_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
       console.error('Error al generar PDF:', err);
-      alert('No se pudo crear el PDF. Instala: jspdf y jspdf-autotable');
+      await dialog.alert('No se pudo crear el PDF. Instala: jspdf y jspdf-autotable', { variant: 'danger', title: 'Error' });
     }
   };
 

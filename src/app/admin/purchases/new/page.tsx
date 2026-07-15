@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { supabase } from '../../../../lib/supabaseClient';
 import QuickCreateProductModal, { QuickProduct } from '../../components/QuickCreateProductModal';
 import BarcodeScannerModal from '../../components/BarcodeScannerModal';
+import { useAlertDialog } from '../../components/AlertDialogProvider';
 
 type Supplier = { id: number; name: string };
 
 export default function NewPurchasePage() {
+  const dialog = useAlertDialog();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<QuickProduct[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -123,7 +125,7 @@ export default function NewPurchasePage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFileError('');
 
@@ -135,12 +137,15 @@ export default function NewPurchasePage() {
 
     const itemsWithProduct = form.items.filter((i) => i.product_id);
     if (itemsWithProduct.length === 0) {
-      alert('Agrega al menos un producto');
+      await dialog.alert('Agrega al menos un producto', { variant: 'warning', title: 'Falta un dato' });
       return;
     }
     // TODO: conectar el guardado real a la tabla `purchases` una vez
     // confirmemos su estructura exacta (siguiente paso del roadmap).
-    alert('✅ Compra registrada exitosamente (guardado real pendiente)');
+    await dialog.alert('Compra registrada exitosamente (guardado real pendiente)', {
+      variant: 'success',
+      title: 'Guardado',
+    });
   };
 
   const total = form.items.reduce(

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { applyMaxOpacity, PASTEL_BANNER_TEXT_COLOR } from '../lib/colorUtils';
+import { useAlertDialog } from './admin/components/AlertDialogProvider';
 
 type Product = {
   id: number;
@@ -43,6 +44,7 @@ type Banner = {
 };
 
 export default function Home() {
+  const dialog = useAlertDialog();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -152,7 +154,7 @@ export default function Home() {
       console.error('Error al añadir al carrito:', error);
     } else {
       setCart([...cart, data[0]]);
-      alert('✅ Producto añadido al carrito');
+      await dialog.alert('Producto añadido al carrito', { variant: 'success', title: 'Listo' });
       closeProductModal();
     }
   };
@@ -165,7 +167,11 @@ export default function Home() {
 
   // Vaciar carrito
   const clearCart = async () => {
-    if (confirm('¿Estás seguro de vaciar el carrito?')) {
+    const confirmed = await dialog.confirm('¿Estás seguro de vaciar el carrito?', {
+      variant: 'warning',
+      confirmText: 'Sí, vaciar',
+    });
+    if (confirmed) {
       await supabase.from('cart_items').delete().eq('session_id', session_id);
       setCart([]);
       setIsCartOpen(false);

@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useAlertDialog } from '../../components/AlertDialogProvider';
 
 export default function CloseCashPage() {
+  const dialog = useAlertDialog();
   const [cashAmount, setCashAmount] = useState('');
   const [isClosed, setIsClosed] = useState(false);
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (!cashAmount || parseFloat(cashAmount) < 0) {
-      alert('Por favor ingresa un monto válido');
+      await dialog.alert('Por favor ingresa un monto válido', { variant: 'warning', title: 'Falta un dato' });
       return;
     }
     setIsClosed(true);

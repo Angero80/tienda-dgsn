@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import DataTable from './DataTable';
+import { useAlertDialog } from './AlertDialogProvider';
 
 interface ResolutionsTableProps {
   filterType: 'dian' | 'equivalent';
@@ -27,6 +28,7 @@ const formatDate = (isoDate: string | null) => {
 };
 
 export default function ResolutionsTable({ filterType }: ResolutionsTableProps) {
+  const dialog = useAlertDialog();
   const [resolutions, setResolutions] = useState<Resolution[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -54,7 +56,7 @@ export default function ResolutionsTable({ filterType }: ResolutionsTableProps) 
         .eq('type', dbType);
 
       if (error) {
-        alert('Error al cargar los datos: ' + error.message);
+        await dialog.alert('Error al cargar los datos: ' + error.message, { variant: 'danger', title: 'Error' });
       } else {
         setResolutions(data || []);
       }
@@ -125,7 +127,7 @@ export default function ResolutionsTable({ filterType }: ResolutionsTableProps) 
         .eq('id', editing.id);
 
       if (error) {
-        alert('Error al actualizar: ' + error.message);
+        await dialog.alert('Error al actualizar: ' + error.message, { variant: 'danger', title: 'Error' });
         return;
       }
       setResolutions(resolutions.map((r) => (r.id === editing.id ? { ...r, ...payload } : r)));
@@ -133,7 +135,7 @@ export default function ResolutionsTable({ filterType }: ResolutionsTableProps) 
       const { data, error } = await supabase.from('resolutions').insert([payload]).select();
 
       if (error) {
-        alert('Error al agregar: ' + error.message);
+        await dialog.alert('Error al agregar: ' + error.message, { variant: 'danger', title: 'Error' });
         return;
       }
       setResolutions([...resolutions, data[0]]);
@@ -142,10 +144,14 @@ export default function ResolutionsTable({ filterType }: ResolutionsTableProps) 
   };
 
   const deleteResolution = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar esta resolución?')) return;
+    const confirmed = await dialog.confirm('¿Estás seguro de eliminar esta resolución?', {
+      variant: 'warning',
+      confirmText: 'Sí, eliminar',
+    });
+    if (!confirmed) return;
     const { error } = await supabase.from('resolutions').delete().eq('id', id);
     if (error) {
-      alert('Error: ' + error.message);
+      await dialog.alert('Error: ' + error.message, { variant: 'danger', title: 'Error' });
     } else {
       setResolutions(resolutions.filter((r) => r.id !== id));
     }

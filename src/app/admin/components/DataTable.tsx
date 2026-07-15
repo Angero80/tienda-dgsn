@@ -1,7 +1,7 @@
 // src/app/admin/components/DataTable.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from '../../../components/Modal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -33,7 +33,8 @@ export default function DataTable({
 }) {
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
+  const [pageSize, setPageSize] = useState<number | 'all'>(5);
 
   const filteredData = data.filter(item =>
     Object.values(item).some(val =>
@@ -41,7 +42,14 @@ export default function DataTable({
     )
   );
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  // Si cambia la búsqueda o cuántas filas se muestran por página, volvemos
+  // a la página 1 para no quedar viendo una página vacía por accidente.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, pageSize]);
+
+  const itemsPerPage = pageSize === 'all' ? Math.max(filteredData.length, 1) : pageSize;
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
@@ -298,11 +306,31 @@ export default function DataTable({
       </div>
 
       {/* Paginación */}
-      <div className="flex justify-between items-center mt-6 text-sm">
-        <span className="text-black">
-          Mostrando {paginatedData.length === 0 ? 0 : startIndex + 1} a{' '}
-          {Math.min(startIndex + itemsPerPage, filteredData.length)} de {filteredData.length} {title.toLowerCase()}
-        </span>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-6 text-sm gap-3">
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 text-black">
+            <span className="text-gray-500">Mostrar</span>
+            <select
+              value={pageSize}
+              onChange={(e) =>
+                setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))
+              }
+              className="border border-gray-300 rounded px-2 py-1 text-black text-sm"
+            >
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+              <option value="all">Todas</option>
+            </select>
+            <span className="text-gray-500">por página</span>
+          </label>
+          <span className="text-black">
+            Mostrando {paginatedData.length === 0 ? 0 : startIndex + 1} a{' '}
+            {Math.min(startIndex + itemsPerPage, filteredData.length)} de {filteredData.length} {title.toLowerCase()}
+          </span>
+        </div>
         <div className="flex space-x-2">
           <button
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}

@@ -5,6 +5,7 @@ import DataTable from '../../components/DataTable';
 import Modal from '../../../../components/Modal';
 import { supabase } from '../../../../lib/supabaseClient';
 import { findDuplicate } from '../../../../lib/textNormalize';
+import { useAlertDialog } from '../../components/AlertDialogProvider';
 
 type Brand = {
   id: number;
@@ -12,6 +13,7 @@ type Brand = {
 };
 
 export default function BrandsPage() {
+  const dialog = useAlertDialog();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [form, setForm] = useState({ name: '' });
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,7 +70,7 @@ export default function BrandsPage() {
 
     const name = form.name.trim();
     if (!name) {
-      alert('El nombre es obligatorio');
+      await dialog.alert('El nombre es obligatorio', { variant: 'warning', title: 'Falta un dato' });
       return;
     }
 
@@ -76,10 +78,11 @@ export default function BrandsPage() {
     const existing = findDuplicate(brands, name, editing?.id ?? null);
 
     if (existing && !editing) {
-      const confirm = window.confirm(
-        `Ya existe una marca con este nombre: "${existing.name}". ¿Quieres usarla?`
+      const useExisting = await dialog.confirm(
+        `Ya existe una marca con este nombre: "${existing.name}". ¿Quieres usarla?`,
+        { variant: 'info', confirmText: 'Usar existente' }
       );
-      if (confirm) {
+      if (useExisting) {
         setForm({ name: existing.name });
         setSearch(existing.name);
       }
@@ -117,15 +120,19 @@ export default function BrandsPage() {
       setSearch('');
     } catch (err: any) {
       console.error('Error al guardar marca:', err);
-      alert('Error: ' + err.message);
+      await dialog.alert('Error: ' + err.message, { variant: 'danger', title: 'Error' });
     }
   };
 
   const deleteBrand = async (id: number) => {
-    if (!confirm('¿Eliminar esta marca?')) return;
+    const confirmed = await dialog.confirm('¿Eliminar esta marca?', {
+      variant: 'warning',
+      confirmText: 'Sí, eliminar',
+    });
+    if (!confirmed) return;
     const { error } = await supabase.from('brands').delete().eq('id', id);
     if (error) {
-      alert('Error: ' + error.message);
+      await dialog.alert('Error: ' + error.message, { variant: 'danger', title: 'Error' });
     } else {
       setBrands(prev => prev.filter(b => b.id !== id));
     }

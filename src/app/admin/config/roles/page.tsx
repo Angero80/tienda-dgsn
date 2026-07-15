@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import DataTable from '../../components/DataTable';
+import { useAlertDialog } from '../../components/AlertDialogProvider';
 
 // NOTA: Esta pantalla todavía no está conectada a Supabase.
 // La gestión real de roles y permisos requiere autenticación
@@ -58,6 +59,7 @@ const allPermissionAreas = [
 ];
 
 export default function RolesPage() {
+  const dialog = useAlertDialog();
   const [roles, setRoles] = useState<Role[]>(initialRoles);
   const [editing, setEditing] = useState<Role | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -91,10 +93,10 @@ export default function RolesPage() {
     }));
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      alert('El nombre del rol es obligatorio.');
+      await dialog.alert('El nombre del rol es obligatorio.', { variant: 'warning', title: 'Falta un dato' });
       return;
     }
 
@@ -109,8 +111,12 @@ export default function RolesPage() {
     closeModal();
   };
 
-  const handleDelete = (id: number) => {
-    if (!confirm('¿Eliminar este rol?')) return;
+  const handleDelete = async (id: number) => {
+    const confirmed = await dialog.confirm('¿Eliminar este rol?', {
+      variant: 'warning',
+      confirmText: 'Sí, eliminar',
+    });
+    if (!confirmed) return;
     setRoles((prev) => prev.filter((r) => r.id !== id));
   };
 

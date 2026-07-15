@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import QuickCreateAttributeModal from './QuickCreateAttributeModal';
 
-type AttributeItem = { id: number; name: string };
+type AttributeItem = { id: number; name: string; dian_unit_id?: number | null };
 
 export type QuickProduct = {
   id: number;
@@ -57,7 +57,7 @@ export default function QuickCreateProductModal({ isOpen, onClose, onCreated, pr
       const [{ data: cats }, { data: brs }, { data: pres }] = await Promise.all([
         supabase.from('categories').select('id, name'),
         supabase.from('brands').select('id, name'),
-        supabase.from('presentations').select('id, name'),
+        supabase.from('presentations').select('id, name, dian_unit_id'),
       ]);
       setCategories(cats || []);
       setBrands(brs || []);

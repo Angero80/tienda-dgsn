@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useAlertDialog } from '../components/AlertDialogProvider';
 
 // Datos de ejemplo (luego vienen de Supabase)
 const products = [
@@ -29,6 +30,7 @@ const products = [
 ];
 
 export default function POSPage() {
+  const dialog = useAlertDialog();
   const [barcodeInput, setBarcodeInput] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [cart, setCart] = useState<Array<{
@@ -50,7 +52,7 @@ export default function POSPage() {
       )
     : [];
 
-  const addToCartByCode = () => {
+  const addToCartByCode = async () => {
     if (!barcodeInput.trim()) return;
 
     const product = products.find(
@@ -61,7 +63,7 @@ export default function POSPage() {
       addToCart(product);
       setBarcodeInput('');
     } else {
-      alert('❌ Producto no encontrado');
+      await dialog.alert('Producto no encontrado', { variant: 'warning', title: 'Sin resultados' });
     }
   };
 
@@ -109,15 +111,14 @@ export default function POSPage() {
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) {
-      alert('El carrito está vacío');
+      await dialog.alert('El carrito está vacío', { variant: 'warning', title: 'Falta un dato' });
       return;
     }
-    alert(
-      `✅ Recibo generado\nCliente: ${customerName}\nTotal: $${total.toFixed(
-        2
-      )}\nImpresión simulada...`
+    await dialog.alert(
+      `Recibo generado\nCliente: ${customerName}\nTotal: $${total.toFixed(2)}\nImpresión simulada...`,
+      { variant: 'success', title: 'Venta registrada' }
     );
     setCart([]);
   };

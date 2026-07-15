@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DataTable from '../components/DataTable';
+import { useAlertDialog } from '../components/AlertDialogProvider';
 
 // Datos de ejemplo — pendiente conectar a la tabla `purchases` real
 const purchases = [
@@ -65,6 +66,7 @@ const statusBadge = (status: string) => (
 );
 
 export default function PurchasesPage() {
+  const dialog = useAlertDialog();
   const router = useRouter();
   const [filterStatus, setFilterStatus] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -169,7 +171,7 @@ export default function PurchasesPage() {
             Ver
           </Link>
           <button
-            onClick={() => alert('PDF descargado')}
+            onClick={() => dialog.alert('PDF descargado', { variant: 'success', title: 'Listo' })}
             className="text-green-600 hover:underline text-sm"
           >
             PDF

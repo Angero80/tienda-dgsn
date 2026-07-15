@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import DataTable from './DataTable';
+import { useAlertDialog } from './AlertDialogProvider';
 
 interface PartiesTableProps {
   type: 'customer' | 'supplier' | 'both';
@@ -37,6 +38,7 @@ const formatDate = (isoDate: string) => {
 };
 
 export default function PartiesTable({ type, title }: PartiesTableProps) {
+  const dialog = useAlertDialog();
   const [parties, setParties] = useState<Party[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,7 +70,7 @@ export default function PartiesTable({ type, title }: PartiesTableProps) {
 
       const { data, error } = await query;
       if (error) {
-        alert('Error: ' + error.message);
+        await dialog.alert('Error: ' + error.message, { variant: 'danger', title: 'Error' });
       } else {
         setParties(data || []);
       }
@@ -128,7 +130,7 @@ export default function PartiesTable({ type, title }: PartiesTableProps) {
         .eq('id', editingParty.id);
 
       if (error) {
-        alert('Error al actualizar: ' + error.message);
+        await dialog.alert('Error al actualizar: ' + error.message, { variant: 'danger', title: 'Error' });
         return;
       }
       setParties(parties.map((p) => (p.id === editingParty.id ? { ...p, ...partyData } : p)));
@@ -136,7 +138,7 @@ export default function PartiesTable({ type, title }: PartiesTableProps) {
       const { data, error } = await supabase.from('parties').insert([partyData]).select();
 
       if (error) {
-        alert('Error al agregar: ' + error.message);
+        await dialog.alert('Error al agregar: ' + error.message, { variant: 'danger', title: 'Error' });
         return;
       }
       setParties([...parties, data[0]]);
@@ -145,10 +147,14 @@ export default function PartiesTable({ type, title }: PartiesTableProps) {
   };
 
   const deleteParty = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este registro?')) return;
+    const confirmed = await dialog.confirm('¿Estás seguro de eliminar este registro?', {
+      variant: 'warning',
+      confirmText: 'Sí, eliminar',
+    });
+    if (!confirmed) return;
     const { error } = await supabase.from('parties').delete().eq('id', id);
     if (error) {
-      alert('Error: ' + error.message);
+      await dialog.alert('Error: ' + error.message, { variant: 'danger', title: 'Error' });
     } else {
       setParties(parties.filter((p) => p.id !== id));
     }

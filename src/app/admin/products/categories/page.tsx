@@ -5,6 +5,7 @@ import DataTable from '../../components/DataTable';
 import Modal from '../../../../components/Modal';
 import { supabase } from '../../../../lib/supabaseClient';
 import { findDuplicate } from '../../../../lib/textNormalize';
+import { useAlertDialog } from '../../components/AlertDialogProvider';
 
 type Category = {
     id: number;
@@ -12,6 +13,7 @@ type Category = {
 };
 
 export default function CategoriesPage() {
+    const dialog = useAlertDialog();
     const [categories, setCategories] = useState<Category[]>([]);
     const [form, setForm] = useState({ name: '' });
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,7 +70,7 @@ export default function CategoriesPage() {
 
         const name = form.name.trim();
         if (!name) {
-            alert('El nombre es obligatorio');
+            await dialog.alert('El nombre es obligatorio', { variant: 'warning', title: 'Falta un dato' });
             return;
         }
 
@@ -76,10 +78,11 @@ export default function CategoriesPage() {
         const existing = findDuplicate(categories, name, editing?.id ?? null);
 
         if (existing && !editing) {
-            const confirm = window.confirm(
-                `Ya existe una categoría con este nombre: "${existing.name}". ¿Quieres usarla?`
+            const useExisting = await dialog.confirm(
+                `Ya existe una categoría con este nombre: "${existing.name}". ¿Quieres usarla?`,
+                { variant: 'info', confirmText: 'Usar existente' }
             );
-            if (confirm) {
+            if (useExisting) {
                 setForm({ name: existing.name });
                 setSearch(existing.name);
             }
@@ -117,15 +120,19 @@ export default function CategoriesPage() {
             setSearch('');
         } catch (err: any) {
             console.error('Error al guardar categoría:', err);
-            alert('Error: ' + err.message);
+            await dialog.alert('Error: ' + err.message, { variant: 'danger', title: 'Error' });
         }
     };
 
     const deleteCategory = async (id: number) => {
-        if (!confirm('¿Eliminar esta categoría?')) return;
+        const confirmed = await dialog.confirm('¿Eliminar esta categoría?', {
+            variant: 'warning',
+            confirmText: 'Sí, eliminar',
+        });
+        if (!confirmed) return;
         const { error } = await supabase.from('categories').delete().eq('id', id);
         if (error) {
-            alert('Error: ' + error.message);
+            await dialog.alert('Error: ' + error.message, { variant: 'danger', title: 'Error' });
         } else {
             setCategories(prev => prev.filter(c => c.id !== id));
         }

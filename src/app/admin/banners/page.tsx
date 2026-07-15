@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { applyMaxOpacity, PASTEL_BANNER_TEXT_COLOR } from '../../../lib/colorUtils';
+import { useAlertDialog } from '../components/AlertDialogProvider';
 
 type Product = {
   id: number;
@@ -41,6 +42,7 @@ const emptyForm = {
 };
 
 export default function BannersPage() {
+  const dialog = useAlertDialog();
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,10 +215,11 @@ export default function BannersPage() {
       .eq('id', banner.id);
 
     if (error) {
-      alert(
+      await dialog.alert(
         error.message.includes('5 banners activos')
           ? 'Ya tienes 5 banners activos. Desactiva uno antes de activar otro.'
-          : 'Error: ' + error.message
+          : 'Error: ' + error.message,
+        { variant: 'warning', title: error.message.includes('5 banners activos') ? 'Límite alcanzado' : 'Error' }
       );
       return;
     }
@@ -224,8 +227,11 @@ export default function BannersPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('¿Eliminar este banner? Esta acción no se puede deshacer.'))
-      return;
+    const confirmed = await dialog.confirm('¿Eliminar este banner? Esta acción no se puede deshacer.', {
+      variant: 'warning',
+      confirmText: 'Sí, eliminar',
+    });
+    if (!confirmed) return;
     await supabase.from('banners').delete().eq('id', id);
     loadData();
   };

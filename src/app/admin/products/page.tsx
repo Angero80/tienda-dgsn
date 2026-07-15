@@ -5,11 +5,12 @@ import DataTable from '../components/DataTable';
 import Modal from '../../../components/Modal';
 import { supabase } from '../../../lib/supabaseClient';
 import QuickCreateAttributeModal from '../components/QuickCreateAttributeModal';
+import { useAlertDialog } from '../components/AlertDialogProvider';
 
 // Tipos
 type Category = { id: number; name: string };
 type Brand = { id: number; name: string };
-type Presentation = { id: number; name: string };
+type Presentation = { id: number; name: string; dian_unit_id?: number | null };
 
 type Product = {
   id: number;
@@ -29,6 +30,7 @@ type Product = {
 };
 
 export default function ProductsPage() {
+  const dialog = useAlertDialog();
   const [businessSector, setBusinessSector] = useState<string>('mixto');
 
   useEffect(() => {
@@ -95,7 +97,7 @@ export default function ProductsPage() {
   const loadDependencies = async () => {
     const {  data: cats, error: err1 } = await supabase.from('categories').select('id, name');
     const {  data: brs, error: err2 } = await supabase.from('brands').select('id, name');
-    const {  data: pres, error: err3 } = await supabase.from('presentations').select('id, name');
+    const {  data: pres, error: err3 } = await supabase.from('presentations').select('id, name, dian_unit_id');
 
     if (err1) console.error('Error cargando categorías:', err1);
     if (err2) console.error('Error cargando marcas:', err2);
@@ -297,11 +299,11 @@ export default function ProductsPage() {
     e.preventDefault();
 
     if (!form.name.trim()) {
-      alert('El nombre es obligatorio');
+      await dialog.alert('El nombre es obligatorio', { variant: 'warning', title: 'Falta un dato' });
       return;
     }
     if (!form.sku.trim()) {
-      alert('El SKU es obligatorio');
+      await dialog.alert('El SKU es obligatorio', { variant: 'warning', title: 'Falta un dato' });
       return;
     }
 
@@ -379,16 +381,20 @@ export default function ProductsPage() {
       setPreviewUrls([null, null, null, null, null]);
     } catch (err: any) {
       console.error('Error al guardar producto:', err);
-      alert('Error: ' + (err.message || 'No se pudo guardar el producto'));
+      await dialog.alert('Error: ' + (err.message || 'No se pudo guardar el producto'), { variant: 'danger', title: 'Error' });
     }
   };
 
   // Eliminar producto
   const deleteProduct = async (id: number) => {
-    if (!confirm('¿Eliminar este producto?')) return;
+    const confirmed = await dialog.confirm('¿Eliminar este producto?', {
+      variant: 'warning',
+      confirmText: 'Sí, eliminar',
+    });
+    if (!confirmed) return;
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) {
-      alert('Error: ' + error.message);
+      await dialog.alert('Error: ' + error.message, { variant: 'danger', title: 'Error' });
     } else {
       setProducts(prev => prev.filter(p => p.id !== id));
     }

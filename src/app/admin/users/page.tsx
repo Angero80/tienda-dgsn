@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Modal from '../../../components/Modal';
 import { supabase } from '../../../lib/supabaseClient';
 import DataTable from '../components/DataTable';
+import { useAlertDialog } from '../components/AlertDialogProvider';
 
 type User = {
   id: number;
@@ -28,6 +29,7 @@ const roleLabelPlain = (role: string) => {
 };
 
 export default function UsersPage() {
+  const dialog = useAlertDialog();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,7 +42,7 @@ export default function UsersPage() {
     const loadUsers = async () => {
       const { data, error } = await supabase.from('users').select('*');
       if (error) {
-        alert('Error al cargar usuarios: ' + error.message);
+        await dialog.alert('Error al cargar usuarios: ' + error.message, { variant: 'danger', title: 'Error' });
       } else {
         setUsers(data || []);
       }
@@ -78,7 +80,7 @@ export default function UsersPage() {
         .eq('id', editingUser.id);
 
       if (error) {
-        alert('Error al actualizar: ' + error.message);
+        await dialog.alert('Error al actualizar: ' + error.message, { variant: 'danger', title: 'Error' });
         return;
       }
       setUsers(users.map((u) => (u.id === editingUser.id ? { ...u, ...form } : u)));
@@ -86,7 +88,7 @@ export default function UsersPage() {
       const { data, error } = await supabase.from('users').insert([form]).select();
 
       if (error) {
-        alert('Error al agregar: ' + error.message);
+        await dialog.alert('Error al agregar: ' + error.message, { variant: 'danger', title: 'Error' });
         return;
       }
       setUsers([...users, data[0]]);
@@ -95,10 +97,14 @@ export default function UsersPage() {
   };
 
   const deleteUser = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este usuario?')) return;
+    const confirmed = await dialog.confirm('¿Estás seguro de eliminar este usuario?', {
+      variant: 'warning',
+      confirmText: 'Sí, eliminar',
+    });
+    if (!confirmed) return;
     const { error } = await supabase.from('users').delete().eq('id', id);
     if (error) {
-      alert('Error: ' + error.message);
+      await dialog.alert('Error: ' + error.message, { variant: 'danger', title: 'Error' });
     } else {
       setUsers(users.filter((u) => u.id !== id));
     }
