@@ -37,6 +37,8 @@ type Banner = {
   discount_text_bottom: string | null;
   background_color: string;
   text_color: string;
+  image_position: 'left' | 'right';
+  is_full_banner: boolean;
   product_id: number | null;
   order_index: number;
   active: boolean;
@@ -235,12 +237,15 @@ export default function Home() {
 
         {/* ✅ BANNER ROTATIVO - Clickeable con apertura de modal */}
         <section
-          className="relative w-full overflow-hidden rounded-lg shadow-lg cursor-pointer"
+          className="relative w-full overflow-hidden rounded-lg shadow-lg"
           style={{
-            height: '230px',
+            aspectRatio: '5 / 1',
             backgroundColor: banners[bannerIndex]?.background_color
-              ? applyMaxOpacity(banners[bannerIndex].background_color)
+              ? (banners[bannerIndex].is_full_banner
+                ? banners[bannerIndex].background_color
+                : applyMaxOpacity(banners[bannerIndex].background_color))
               : '#fff',
+            cursor: banners[bannerIndex]?.product_id ? 'pointer' : 'default',
           }}
           onClick={() => {
             if (banners[bannerIndex]?.product_id) {
@@ -256,6 +261,96 @@ export default function Home() {
           ) : (
             banners.map((banner, index) => {
               const bannerImage = banner.custom_image_url || banner.image_url;
+              const imageFirst = (banner.image_position || 'left') !== 'right';
+
+              if (banner.is_full_banner) {
+                return (
+                  <div
+                    key={banner.id}
+                    className={`absolute inset-0 transition-opacity duration-1000 ${index === bannerIndex ? 'opacity-100' : 'opacity-0'
+                      }`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: banner.background_color || '#fff',
+                    }}
+                  >
+                    {bannerImage && (
+                      <img
+                        src={bannerImage}
+                        alt={banner.title}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                        }}
+                        onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                      />
+                    )}
+                  </div>
+                );
+              }
+
+              const imageBlock = bannerImage && (
+                <div
+                  key="image"
+                  style={{
+                    maxWidth: '320px',
+                    flex: '1 1 0',
+                    height: '85%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#fff',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <img
+                    src={bannerImage}
+                    alt={banner.title}
+                    style={{
+                      maxHeight: '90%',
+                      maxWidth: '100%',
+                      objectFit: 'contain',
+                    }}
+                    onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                  />
+                </div>
+              );
+
+              const textBlock = (
+                <div
+                  key="text"
+                  style={{
+                    maxWidth: bannerImage ? '480px' : '100%',
+                    flex: bannerImage ? '1 1 0' : 'initial',
+                    color: PASTEL_BANNER_TEXT_COLOR,
+                    textAlign: imageFirst ? 'left' : 'right',
+                    lineHeight: '1.2',
+                  }}
+                >
+                  {banner.discount_text_top && (
+                    <p style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>
+                      {banner.discount_text_top}
+                    </p>
+                  )}
+                  <p style={{ fontSize: '32px', fontWeight: 'bold' }}>
+                    {banner.title}
+                  </p>
+                  {banner.subtitle && (
+                    <p style={{ fontSize: '20px', fontWeight: 'normal', marginTop: '4px' }}>
+                      {banner.subtitle}
+                    </p>
+                  )}
+                  {banner.discount_text_bottom && (
+                    <p style={{ fontSize: '16px', fontWeight: 600, marginTop: '8px' }}>
+                      {banner.discount_text_bottom}
+                    </p>
+                  )}
+                </div>
+              );
+
               return (
                 <div
                   key={banner.id}
@@ -272,62 +367,17 @@ export default function Home() {
                       : '#fff',
                   }}
                 >
-                  {/* Imagen - a la izquierda, centrada, sin recortar */}
-                  {bannerImage && (
-                    <div
-                      style={{
-                        maxWidth: '320px',
-                        flex: '1 1 0',
-                        height: '85%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#fff',
-                        borderRadius: '8px',
-                      }}
-                    >
-                      <img
-                        src={bannerImage}
-                        alt={banner.title}
-                        style={{
-                          maxHeight: '90%',
-                          maxWidth: '100%',
-                          objectFit: 'contain',
-                        }}
-                        onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-                      />
-                    </div>
+                  {imageFirst ? (
+                    <>
+                      {imageBlock}
+                      {textBlock}
+                    </>
+                  ) : (
+                    <>
+                      {textBlock}
+                      {imageBlock}
+                    </>
                   )}
-
-                  {/* Texto - a la derecha */}
-                  <div
-                    style={{
-                      maxWidth: bannerImage ? '480px' : '100%',
-                      flex: bannerImage ? '1 1 0' : 'initial',
-                      color: PASTEL_BANNER_TEXT_COLOR,
-                      textAlign: 'left',
-                      lineHeight: '1.2',
-                    }}
-                  >
-                    {banner.discount_text_top && (
-                      <p style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>
-                        {banner.discount_text_top}
-                      </p>
-                    )}
-                    <p style={{ fontSize: '32px', fontWeight: 'bold' }}>
-                      {banner.title}
-                    </p>
-                    {banner.subtitle && (
-                      <p style={{ fontSize: '20px', fontWeight: 'normal', marginTop: '4px' }}>
-                        {banner.subtitle}
-                      </p>
-                    )}
-                    {banner.discount_text_bottom && (
-                      <p style={{ fontSize: '16px', fontWeight: 600, marginTop: '8px' }}>
-                        {banner.discount_text_bottom}
-                      </p>
-                    )}
-                  </div>
                 </div>
               );
             })

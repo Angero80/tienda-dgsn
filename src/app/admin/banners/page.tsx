@@ -9,6 +9,7 @@ type Product = {
   id: number;
   name: string;
   image_url: string;
+  images: string[] | null;
   price: number;
 };
 
@@ -25,6 +26,8 @@ type Banner = {
   active: boolean;
   background_color: string;
   text_color: string;
+  image_position: 'left' | 'right';
+  is_full_banner: boolean;
   products?: Product;
 };
 
@@ -39,6 +42,8 @@ const emptyForm = {
   text_color: '#ffffff',
   active: true,
   custom_image_url: '' as string,
+  image_position: 'left' as 'left' | 'right',
+  is_full_banner: false,
 };
 
 export default function BannersPage() {
@@ -49,7 +54,62 @@ export default function BannersPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string>('');
+  const [dimensionWarning, setDimensionWarning] = useState('');
   const [form, setForm] = useState(emptyForm);
+  const [savedSnapshot, setSavedSnapshot] = useState(emptyForm);
+  const [bannerSource, setBannerSource] = useState<'product' | 'custom' | 'full'>('product');
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+
+  const isDirty =
+    JSON.stringify(form) !== JSON.stringify(savedSnapshot) || uploadFile !== null;
+
+  // Aviso nativo del navegador si intenta cerrar la pestaña o recargar con
+  // cambios sin guardar (no cubre la navegación interna del panel, solo
+  // cierre/recarga/URL directa).
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  useEffect(() => {
+    if (!uploadFile) {
+      setLocalPreviewUrl('');
+      return;
+    }
+    const url = URL.createObjectURL(uploadFile);
+    setLocalPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [uploadFile]);
+
+  // Solo importa la proporción recomendada (5:1) cuando es "banner completo":
+  // en modo normal la imagen es libre (foto de producto).
+  useEffect(() => {
+    if (!localPreviewUrl || !form.is_full_banner) {
+      setDimensionWarning('');
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.width / img.height;
+      const targetRatio = 5; // 1200x240
+      const tolerance = 0.15;
+      if (Math.abs(ratio - targetRatio) / targetRatio > tolerance) {
+        setDimensionWarning(
+          `Esta imagen es ${img.width}×${img.height}px (proporción ${ratio.toFixed(2)}:1) y no coincide exactamente con la proporción recomendada (5:1). Se mostrará completa sin recortar y el espacio sobrante se rellenará con el color de fondo.`
+        );
+      } else {
+        setDimensionWarning('');
+      }
+    };
+    img.src = localPreviewUrl;
+  }, [localPreviewUrl, form.is_full_banner]);
 
   const activeCount = banners.filter((b) => b.active).length;
 
@@ -58,7 +118,7 @@ export default function BannersPage() {
 
     const { data: productsData } = await supabase
       .from('products')
-      .select('id, name, image_url, price')
+      .select('id, name, image_url, images, price')
       .order('name');
 
     const { data: bannersData } = await supabase
@@ -80,16 +140,20 @@ export default function BannersPage() {
   );
 
   const previewImage =
-    form.custom_image_url || selectedProduct?.image_url || '';
+    localPreviewUrl || form.custom_image_url || selectedProduct?.image_url || '';
 
   const resetForm = () => {
     setForm(emptyForm);
+    setSavedSnapshot(emptyForm);
     setUploadFile(null);
     setErrorMsg('');
+    setBannerSource('product');
+    setProductSearchTerm('');
+    setProductDropdownOpen(false);
   };
 
   const handleEdit = (banner: Banner) => {
-    setForm({
+    const loaded = {
       id: banner.id,
       product_id: banner.product_id ? String(banner.product_id) : '',
       title: banner.title,
@@ -100,9 +164,16 @@ export default function BannersPage() {
       text_color: banner.text_color || '#ffffff',
       active: banner.active,
       custom_image_url: banner.custom_image_url || '',
-    });
+      image_position: banner.image_position || 'left',
+      is_full_banner: banner.is_full_banner || false,
+    };
+    setForm(loaded);
+    setSavedSnapshot(loaded);
     setUploadFile(null);
     setErrorMsg('');
+    setBannerSource(banner.is_full_banner ? 'full' : banner.product_id ? 'product' : 'custom');
+    setProductSearchTerm('');
+    setProductDropdownOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -111,8 +182,24 @@ export default function BannersPage() {
     setForm((prev) => ({
       ...prev,
       product_id: productId,
-      title: prev.title || p?.name || '',
+      title: p?.name || '',
+      custom_image_url: '',
     }));
+    setProductSearchTerm('');
+    setProductDropdownOpen(false);
+  };
+
+  const handleSourceChange = (source: 'product' | 'custom' | 'full') => {
+    setBannerSource(source);
+    setForm((prev) => ({
+      ...prev,
+      is_full_banner: source === 'full',
+      product_id: source === 'product' ? prev.product_id : '',
+      custom_image_url: '',
+    }));
+    setUploadFile(null);
+    setProductSearchTerm('');
+    setProductDropdownOpen(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,12 +232,16 @@ export default function BannersPage() {
   const handleSave = async () => {
     setErrorMsg('');
 
-    if (!form.product_id) {
-      setErrorMsg('Debes seleccionar un producto ya creado.');
+    if (bannerSource === 'product' && !form.product_id) {
+      setErrorMsg('Debes seleccionar un producto, o cambiar el origen del banner a "Personalizado".');
       return;
     }
     if (!form.title.trim()) {
       setErrorMsg('El título es obligatorio.');
+      return;
+    }
+    if (form.is_full_banner && !uploadFile && !form.custom_image_url) {
+      setErrorMsg('Debes subir la imagen del banner completo.');
       return;
     }
 
@@ -163,16 +254,18 @@ export default function BannersPage() {
     }
 
     const payload = {
-      product_id: Number(form.product_id),
+      product_id: bannerSource === 'product' ? Number(form.product_id) : null,
       title: form.title.trim(),
-      subtitle: form.subtitle.trim() || null,
-      discount_text_top: form.discount_text_top.trim() || null,
-      discount_text_bottom: form.discount_text_bottom.trim() || null,
+      subtitle: form.is_full_banner ? null : form.subtitle.trim() || null,
+      discount_text_top: form.is_full_banner ? null : form.discount_text_top.trim() || null,
+      discount_text_bottom: form.is_full_banner ? null : form.discount_text_bottom.trim() || null,
       background_color: form.background_color,
       text_color: form.text_color,
       active: form.active,
       custom_image_url: customImageUrl,
       image_url: selectedProduct?.image_url || null,
+      image_position: form.image_position,
+      is_full_banner: form.is_full_banner,
     };
 
     let error;
@@ -290,22 +383,102 @@ export default function BannersPage() {
           {/* Columna izquierda: campos */}
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Producto *
+              <label className="block text-sm font-medium mb-2">
+                Origen del banner
               </label>
-              <select
-                className="w-full border rounded px-3 py-2"
-                value={form.product_id}
-                onChange={(e) => handleProductChange(e.target.value)}
-              >
-                <option value="">Selecciona un producto...</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} - ${p.price}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="banner_source"
+                    checked={bannerSource === 'product'}
+                    onChange={() => handleSourceChange('product')}
+                  />
+                  Producto del catálogo
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="banner_source"
+                    checked={bannerSource === 'custom'}
+                    onChange={() => handleSourceChange('custom')}
+                  />
+                  Personalizado (sin producto — subes imagen y escribes el mensaje)
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="banner_source"
+                    checked={bannerSource === 'full'}
+                    onChange={() => handleSourceChange('full')}
+                  />
+                  Imagen de banner completo (sin producto, sin texto superpuesto)
+                </label>
+              </div>
             </div>
+
+            {bannerSource === 'product' && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Producto *
+                </label>
+                {form.product_id && !productSearchTerm ? (
+                  <div className="flex items-center justify-between border rounded px-3 py-2 bg-gray-50">
+                    <span className="text-sm">
+                      {selectedProduct?.name || 'Producto seleccionado'}
+                      {selectedProduct && (
+                        <span className="text-gray-500"> — ${selectedProduct.price}</span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, product_id: '' })}
+                      className="text-blue-600 text-xs underline"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      autoFocus
+                      autoComplete="off"
+                      value={productSearchTerm}
+                      onChange={(e) => setProductSearchTerm(e.target.value)}
+                      onFocus={() => setProductDropdownOpen(true)}
+                      onBlur={() => setProductDropdownOpen(false)}
+                      placeholder="Buscar o elegir un producto..."
+                      className="w-full border rounded px-3 py-2"
+                    />
+                    {productDropdownOpen && (
+                      <ul className="absolute z-50 mt-1 w-full bg-white border rounded shadow-lg max-h-[180px] overflow-y-auto">
+                        {products
+                          .filter((p) =>
+                            p.name.toLowerCase().includes(productSearchTerm.trim().toLowerCase())
+                          )
+                          .map((p) => (
+                            <li
+                              key={p.id}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleProductChange(String(p.id))}
+                              className="h-9 px-2 flex items-center justify-between hover:bg-gray-100 cursor-pointer text-sm"
+                            >
+                              <span className="truncate">{p.name}</span>
+                              <span className="text-gray-500 ml-2 flex-shrink-0">${p.price}</span>
+                            </li>
+                          ))}
+                        {products.filter((p) =>
+                          p.name.toLowerCase().includes(productSearchTerm.trim().toLowerCase())
+                        ).length === 0 && (
+                          <li className="h-9 px-2 flex items-center text-gray-500 text-sm">Sin resultados</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium mb-1">
@@ -320,48 +493,80 @@ export default function BannersPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Subtítulo
-              </label>
-              <input
-                className="w-full border rounded px-3 py-2"
-                value={form.subtitle}
-                onChange={(e) =>
-                  setForm({ ...form, subtitle: e.target.value })
-                }
-              />
-            </div>
+            {!form.is_full_banner && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Subtítulo
+                </label>
+                <input
+                  className="w-full border rounded px-3 py-2"
+                  value={form.subtitle}
+                  onChange={(e) =>
+                    setForm({ ...form, subtitle: e.target.value })
+                  }
+                />
+              </div>
+            )}
 
-            <div className="grid grid-cols-2 gap-3">
+            {!form.is_full_banner && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Texto superior (ej: 30% OFF)
+                  </label>
+                  <input
+                    className="w-full border rounded px-3 py-2"
+                    value={form.discount_text_top}
+                    onChange={(e) =>
+                      setForm({ ...form, discount_text_top: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Texto inferior (ej: Solo hoy)
+                  </label>
+                  <input
+                    className="w-full border rounded px-3 py-2"
+                    value={form.discount_text_bottom}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        discount_text_bottom: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            {!form.is_full_banner && (
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Texto superior (ej: 30% OFF)
+                  Posición de la imagen
                 </label>
-                <input
-                  className="w-full border rounded px-3 py-2"
-                  value={form.discount_text_top}
-                  onChange={(e) =>
-                    setForm({ ...form, discount_text_top: e.target.value })
-                  }
-                />
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="image_position"
+                      checked={form.image_position === 'left'}
+                      onChange={() => setForm({ ...form, image_position: 'left' })}
+                    />
+                    Izquierda (texto a la derecha)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="image_position"
+                      checked={form.image_position === 'right'}
+                      onChange={() => setForm({ ...form, image_position: 'right' })}
+                    />
+                    Derecha (texto a la izquierda)
+                  </label>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Texto inferior (ej: Solo hoy)
-                </label>
-                <input
-                  className="w-full border rounded px-3 py-2"
-                  value={form.discount_text_bottom}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      discount_text_bottom: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium mb-1">
@@ -375,27 +580,90 @@ export default function BannersPage() {
                   setForm({ ...form, background_color: e.target.value })
                 }
               />
-              <p className="text-xs text-gray-500 mt-1">
-                El color se suaviza automáticamente a un tono pastel si es
-                muy oscuro o muy saturado, para proteger la legibilidad del
-                banner. El texto siempre se muestra en gris oscuro.
-              </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Imagen personalizada (opcional)
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="w-full text-sm"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Si no subes ninguna, se usa la imagen del producto.
-              </p>
-            </div>
+            {bannerSource === 'product' ? (
+              <div className="border rounded-lg p-3 bg-gray-50 space-y-2">
+                <label className="block text-sm font-medium mb-1">
+                  Foto para el banner
+                </label>
+                {selectedProduct ? (
+                  (() => {
+                    const photos = Array.from(
+                      new Set([selectedProduct.image_url, ...(selectedProduct.images || [])].filter(Boolean))
+                    );
+                    return photos.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {photos.map((url) => {
+                          const isSelected =
+                            (form.custom_image_url || selectedProduct.image_url) === url;
+                          return (
+                            <button
+                              key={url}
+                              type="button"
+                              onClick={() =>
+                                setForm({
+                                  ...form,
+                                  custom_image_url: url === selectedProduct.image_url ? '' : url,
+                                })
+                              }
+                              className={`w-16 h-16 rounded border-2 overflow-hidden bg-white flex-shrink-0 ${isSelected ? 'border-blue-600' : 'border-gray-200'
+                                }`}
+                              title={url === selectedProduct.image_url ? 'Foto principal' : 'Foto adicional'}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={url} alt="" className="w-full h-full object-contain p-1" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500">Este producto no tiene fotos cargadas.</p>
+                    );
+                  })()
+                ) : (
+                  <p className="text-xs text-gray-500">Selecciona un producto para ver sus fotos.</p>
+                )}
+              </div>
+            ) : (
+              <div className="border rounded-lg p-3 bg-gray-50 space-y-2">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    {form.is_full_banner ? 'Imagen del banner completo *' : 'Imagen (opcional)'}
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="banner-image-upload"
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('banner-image-upload')?.click()}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                    >
+                      Subir imagen
+                    </button>
+                    <span className="text-sm text-gray-600 truncate">
+                      {uploadFile?.name ||
+                        (form.custom_image_url ? 'Imagen ya cargada' : 'No hay archivo seleccionado')}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {form.is_full_banner
+                      ? 'Tamaño recomendado: 1200×240px (proporción 5:1), formato JPG o PNG. Si la imagen no cumple exactamente esa proporción, se muestra completa sin recortar y el espacio sobrante se rellena con el color de fondo.'
+                      : 'Recomendado: imagen cuadrada o con fondo transparente, mínimo 500×500px.'}
+                  </p>
+                  {dimensionWarning && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-2">
+                      ⚠️ {dimensionWarning}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <label className="flex items-center gap-2">
               <input
@@ -416,14 +684,21 @@ export default function BannersPage() {
               >
                 {saving ? 'Guardando...' : form.id ? 'Actualizar' : 'Crear banner'}
               </button>
-              {form.id && (
-                <button
-                  onClick={resetForm}
-                  className="border px-4 py-2 rounded"
-                >
-                  Cancelar edición
-                </button>
-              )}
+              <button
+                onClick={async () => {
+                  if (isDirty) {
+                    const confirmed = await dialog.confirm(
+                      'Tienes cambios sin guardar. Si sales ahora, se perderán.',
+                      { variant: 'warning', confirmText: 'Sí, descartar cambios' }
+                    );
+                    if (!confirmed) return;
+                  }
+                  resetForm();
+                }}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded"
+              >
+                {form.id ? 'Cancelar edición' : 'Cancelar'}
+              </button>
             </div>
           </div>
 
@@ -433,47 +708,76 @@ export default function BannersPage() {
               Vista previa
             </label>
             <div
-              className="relative w-full h-56 rounded-lg overflow-hidden flex"
-              style={{ backgroundColor: applyMaxOpacity(form.background_color) }}
+              className="relative w-full rounded-lg overflow-hidden flex"
+              style={
+                form.is_full_banner
+                  ? { aspectRatio: '5 / 1', backgroundColor: form.background_color }
+                  : { aspectRatio: '5 / 1', backgroundColor: applyMaxOpacity(form.background_color) }
+              }
             >
-              {/* Panel de texto (color sólido, garantiza contraste) */}
-              <div
-                className="flex-1 flex flex-col justify-center px-5 py-4 min-w-0"
-                style={{ color: PASTEL_BANNER_TEXT_COLOR }}
-              >
-                {form.discount_text_top && (
-                  <p className="text-xl font-extrabold mb-1 leading-tight">
-                    {form.discount_text_top}
-                  </p>
-                )}
-                <h3 className="text-lg font-bold leading-tight">
-                  {form.title || 'Título del banner'}
-                </h3>
-                {form.subtitle && (
-                  <p className="text-sm mt-1 opacity-90">{form.subtitle}</p>
-                )}
-                {form.discount_text_bottom && (
-                  <p className="text-sm mt-2 font-semibold">
-                    {form.discount_text_bottom}
-                  </p>
-                )}
-              </div>
+              {form.is_full_banner ? (
+                previewImage ? (
+                  // Imagen completa: se muestra entera sin recortar; si no
+                  // llena el espacio, el color de fondo rellena el resto.
+                  <div className="w-full h-full flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewImage}
+                      alt={form.title || 'Banner'}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">
+                    Sube la imagen del banner completo
+                  </div>
+                )
+              ) : (
+                <div
+                  className={`w-full h-full flex ${form.image_position === 'right' ? 'flex-row-reverse' : 'flex-row'
+                    }`}
+                >
+                  {/* Panel de texto (color sólido, garantiza contraste) */}
+                  <div
+                    className="flex-1 flex flex-col justify-center px-5 py-4 min-w-0"
+                    style={{ color: PASTEL_BANNER_TEXT_COLOR }}
+                  >
+                    {form.discount_text_top && (
+                      <p className="text-xl font-extrabold mb-1 leading-tight">
+                        {form.discount_text_top}
+                      </p>
+                    )}
+                    <h3 className="text-lg font-bold leading-tight">
+                      {form.title || 'Título del banner'}
+                    </h3>
+                    {form.subtitle && (
+                      <p className="text-sm mt-1 opacity-90">{form.subtitle}</p>
+                    )}
+                    {form.discount_text_bottom && (
+                      <p className="text-sm mt-2 font-semibold">
+                        {form.discount_text_bottom}
+                      </p>
+                    )}
+                  </div>
 
-              {/* Imagen del producto, sin recortar ni deformar */}
-              {previewImage && (
-                <div className="w-2/5 bg-white flex items-center justify-center flex-shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={previewImage}
-                    alt={form.title || 'Producto'}
-                    className="w-full h-full object-contain p-3"
-                  />
+                  {/* Imagen del producto, sin recortar ni deformar */}
+                  {previewImage && (
+                    <div className="w-2/5 bg-white flex items-center justify-center flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={previewImage}
+                        alt={form.title || 'Producto'}
+                        className="w-full h-full object-contain p-3"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              Tip: elige un color de texto que contraste bien con el color de
-              fondo (ej: texto blanco sobre fondo azul oscuro).
+              {form.is_full_banner
+                ? 'Modo imagen completa: no se superpone ningún texto. Si la imagen no cubre todo el espacio, el color de fondo rellena el resto.'
+                : 'El color que elijas se suaviza automáticamente a un tono pastel si es muy oscuro o muy saturado, para proteger el contraste con el texto (siempre en gris oscuro). Esta vista previa ya muestra el resultado final.'}
             </p>
           </div>
         </div>
@@ -519,6 +823,11 @@ export default function BannersPage() {
                     <p className="font-medium">{banner.title}</p>
                     <p className="text-xs text-gray-500">
                       Producto: {banner.products?.name || '—'}
+                      {banner.is_full_banner && (
+                        <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                          Imagen completa
+                        </span>
+                      )}
                     </p>
                   </div>
                   <span

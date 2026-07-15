@@ -234,6 +234,7 @@ export default function BusinessSettingsPage() {
     }
 
     setSettings((prev) => ({ ...prev, ...keysToSave, rut_file_url: rutUrl }));
+    setRutFile(null);
     setSaving(false);
     await dialog.alert('Datos de la empresa guardados correctamente', {
       variant: 'success',
@@ -391,7 +392,10 @@ export default function BusinessSettingsPage() {
           {/* RUT */}
           <div>
             <h2 className="text-lg font-semibold mb-2 text-gray-800">RUT *</h2>
-            <div className="flex items-center gap-3">
+            <p className="text-xs text-gray-500 mb-2">
+              Verifica en tu RUT la <strong>actividad económica principal</strong> (casilla 46) antes de escribir el código CIIU abajo.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
               <input
                 type="file"
                 accept=".pdf,image/*"
@@ -404,21 +408,20 @@ export default function BusinessSettingsPage() {
                 onClick={() => document.getElementById('rut-upload')?.click()}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
               >
-                {uploadingRut ? 'Subiendo...' : 'Subir RUT'}
+                {uploadingRut ? 'Subiendo...' : settings['rut_file_url'] ? 'Actualizar RUT' : 'Cargar RUT'}
               </button>
-              <span className="text-sm text-gray-600">
-                {rutFile?.name ||
-                  (settings['rut_file_url'] ? 'RUT ya cargado' : 'No hay archivo seleccionado')}
-              </span>
-              {settings['rut_file_url'] && !rutFile && (
+              {settings['rut_file_url'] && (
                 <a
                   href={settings['rut_file_url']}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 text-sm underline"
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm"
                 >
-                  Ver actual
+                  Ver
                 </a>
+              )}
+              {rutFile && (
+                <span className="text-sm text-gray-600">{rutFile.name}</span>
               )}
             </div>
           </div>
