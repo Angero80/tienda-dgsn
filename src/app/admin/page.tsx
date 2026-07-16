@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { formatCurrency } from '../../lib/formatCurrency';
 
 type Sale = {
   id: number;
@@ -119,7 +120,7 @@ export default function Dashboard() {
         </div>
         <div className="bg-white p-6 rounded-xl shadow">
           <h2 className="text-lg font-semibold text-gray-700">Ingresos Totales</h2>
-          <p className="text-2xl font-bold text-green-600 mt-2">${stats.totalRevenue.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-green-600 mt-2">${formatCurrency(stats.totalRevenue)}</p>
         </div>
         <div className="bg-white p-6 rounded-xl shadow">
           <h2 className="text-lg font-semibold text-gray-700">Productos</h2>
@@ -145,7 +146,7 @@ export default function Dashboard() {
                     <span className="font-medium">{product.name}</span>
                     <span className="text-sm text-gray-600">Stock: {product.stock}</span>
                   </div>
-                  <p className="text-sm text-gray-500">Precio: ${product.price.toFixed(2)}</p>
+                  <p className="text-sm text-gray-500">Precio: ${formatCurrency(product.price)}</p>
                 </li>
               ))}
             </ul>
@@ -173,7 +174,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-700">{sale.type}</span>
-                    <span className="font-semibold">${(sale.total || 0).toFixed(2)}</span>
+                    <span className="font-semibold">${formatCurrency((sale.total || 0))}</span>
                   </div>
                 </li>
               ))}

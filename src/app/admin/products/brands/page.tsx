@@ -60,9 +60,12 @@ export default function BrandsPage() {
   };
 
   const selectOption = (brand: Brand) => {
-    setSearch(brand.name);
-    setForm({ name: brand.name });
-    setFiltered(brands);
+    // Ya existe: no hay nada que crear, cerramos directo.
+    setIsModalOpen(false);
+    setEditing(null);
+    setForm({ name: '' });
+    setSearch('');
+    setFiltered([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,34 +155,32 @@ export default function BrandsPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-black mb-1">Nombre</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={search}
-                onChange={handleSearch}
-                onFocus={() => setFiltered(brands)}
-                className="w-full p-2 bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                placeholder="Buscar o escribir nueva marca..."
-                autoComplete="off"
-              />
-              {search && (
-                <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-auto">
-                  {filtered.length === 0 ? (
-                    <li className="p-2 text-gray-500 text-sm">No se encontraron resultados</li>
-                  ) : (
-                    filtered.map((brand) => (
-                      <li
-                        key={brand.id}
-                        onClick={() => selectOption(brand)}
-                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-800"
-                      >
-                        {brand.name}
-                      </li>
-                    ))
-                  )}
-                </ul>
-              )}
-            </div>
+            <input
+              type="text"
+              value={search}
+              onChange={handleSearch}
+              onFocus={() => setFiltered(brands)}
+              className="w-full p-2 bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              placeholder="Buscar o escribir nueva marca..."
+              autoComplete="off"
+            />
+            {search && (
+              <ul className="mt-1 w-full bg-white border border-gray-300 rounded shadow max-h-40 overflow-auto">
+                {filtered.length === 0 ? (
+                  <li className="p-2 text-gray-500 text-sm">No se encontraron resultados</li>
+                ) : (
+                  filtered.map((brand) => (
+                    <li
+                      key={brand.id}
+                      onClick={() => selectOption(brand)}
+                      className="p-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-800"
+                    >
+                      {brand.name}
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
           </div>
           <div className="flex space-x-2 pt-4">
             <button

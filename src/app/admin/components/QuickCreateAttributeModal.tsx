@@ -29,7 +29,7 @@ export default function QuickCreateAttributeModal({
 
   if (tableName === 'presentations') {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4">
         <div className="bg-white rounded-lg p-5 w-full max-w-sm text-gray-900">
           <h3 className="font-semibold mb-3">{title}</h3>
           <PresentationSearch
@@ -128,7 +128,7 @@ function GenericAttributeQuickCreate({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4">
       <div className="bg-white rounded-lg p-5 w-full max-w-sm text-gray-900">
         <h3 className="font-semibold mb-3">{title}</h3>
 

@@ -1,103 +1,153 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DataTable from '../components/DataTable';
+import { supabase } from '../../../lib/supabaseClient';
 import { useAlertDialog } from '../components/AlertDialogProvider';
+import { formatDocNumber } from '../../../lib/invoiceNumber';
+import { formatCurrency } from '../../../lib/formatCurrency';
 
-// Datos simulados — pendiente conectar a la tabla `sales` real
-const invoices = [
-  {
-    id: 1,
-    number: 'FAC-001-00001',
-    date: '2025-08-14',
-    time: '10:30',
-    customer: 'John Doe',
-    docNumber: '100000000',
-    status: 'Autorizada',
-    type: 'Factura',
-    total: 1299.99,
-  },
-  {
-    id: 2,
-    number: 'REC-001-00001',
-    date: '2025-08-13',
-    time: '15:45',
-    customer: 'María López',
-    docNumber: '9876543210',
-    status: 'Autorizada',
-    type: 'Recibo',
-    total: 89.99,
-  },
-];
+type SaleItem = {
+  product_id: number;
+  product_name: string;
+  sku: string;
+  quantity: number;
+  price: number;
+  tax_rate: number;
+  tax_amount: number;
+  subtotal: number;
+  total: number;
+};
 
-type Invoice = (typeof invoices)[number];
+type Sale = {
+  id: number;
+  sale_date: string;
+  type: 'factura' | 'recibo';
+  party_id: number | null;
+  resolution_id: number;
+  invoice_number: number | null;
+  receipt_number: number | null;
+  subtotal: number;
+  taxes: number;
+  total: number;
+  items: SaleItem[];
+  payment_method: string;
+  notes: string | null;
+  customer_name?: string;
+  resolution_prefix?: string | null;
+};
 
 const typeBadge = (type: string) => (
   <span
     className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${
-      type === 'Factura' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+      type === 'factura' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
     }`}
   >
-    {type}
+    {type === 'factura' ? 'Factura' : 'Recibo'}
   </span>
 );
 
-const statusBadge = (status: string) => (
-  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-    {status}
-  </span>
-);
+const formatDateTime = (isoString: string) => {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  return d.toLocaleString('es-CO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 export default function InvoicesPage() {
   const dialog = useAlertDialog();
   const router = useRouter();
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const filtered = invoices.filter((inv) => {
-    const matchesType = filterType === 'all' || inv.type === filterType;
+  useEffect(() => {
+    loadSales();
+  }, []);
 
-    const invoiceDate = new Date(inv.date);
+  const loadSales = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('sales')
+      .select('*, parties(name), resolutions(prefix)')
+      .order('sale_date', { ascending: false });
+
+    if (error) {
+      console.error('Error cargando facturas:', error.message);
+    } else {
+      setSales(
+        (data || []).map((s: any) => ({
+          ...s,
+          customer_name: s.parties?.name || 'Consumidor final',
+          resolution_prefix: s.resolutions?.prefix || null,
+        }))
+      );
+    }
+    setLoading(false);
+  };
+
+  const filtered = sales.filter((s) => {
+    const matchesType = filterType === 'all' || s.type === filterType;
+
+    const saleDate = new Date(s.sale_date);
     const start = dateFrom ? new Date(dateFrom) : null;
     const end = dateTo ? new Date(dateTo) : null;
 
-    const afterStart = !start || invoiceDate >= start;
-    const beforeEnd = !end || invoiceDate <= end;
+    const afterStart = !start || saleDate >= start;
+    const beforeEnd = !end || saleDate <= end;
 
     return matchesType && afterStart && beforeEnd;
   });
+
+  if (loading) {
+    return <div className="p-6">Cargando facturas...</div>;
+  }
 
   return (
     <DataTable
       title="Facturas y Recibos"
       data={filtered}
+      printLandscape
       columns={[
-        { key: 'number', label: 'Número' },
         {
-          key: 'date',
-          label: 'Fecha',
-          render: (item: Invoice) => `${item.date} ${item.time}`,
+          key: 'number',
+          label: 'Número',
+          render: (item: Sale) =>
+            formatDocNumber(item.resolution_prefix, item.type === 'factura' ? item.invoice_number : item.receipt_number),
+          exportValue: (item: Sale) =>
+            formatDocNumber(item.resolution_prefix, item.type === 'factura' ? item.invoice_number : item.receipt_number),
         },
-        { key: 'customer', label: 'Cliente' },
+        {
+          key: 'sale_date',
+          label: 'Fecha',
+          render: (item: Sale) => formatDateTime(item.sale_date),
+        },
+        { key: 'customer_name', label: 'Cliente' },
         {
           key: 'type',
           label: 'Tipo',
-          render: (item: Invoice) => typeBadge(item.type),
-          exportValue: (item: Invoice) => item.type,
+          render: (item: Sale) => typeBadge(item.type),
+          exportValue: (item: Sale) => (item.type === 'factura' ? 'Factura' : 'Recibo'),
+        },
+        {
+          key: 'items',
+          label: 'Productos',
+          render: (item: Sale) => `${(item.items || []).length} productos`,
+          exportValue: (item: Sale) => String((item.items || []).length),
         },
         {
           key: 'total',
           label: 'Total',
-          render: (item: Invoice) => `$${item.total.toFixed(2)}`,
-        },
-        {
-          key: 'status',
-          label: 'Estado',
-          render: (item: Invoice) => statusBadge(item.status),
-          exportValue: (item: Invoice) => item.status,
+          render: (item: Sale) => `$${formatCurrency(Number(item.total))}`,
         },
       ]}
       formFields={[]}
@@ -114,8 +164,8 @@ export default function InvoicesPage() {
               className="p-2 border border-gray-300 rounded text-black text-sm h-9"
             >
               <option value="all">Todos</option>
-              <option value="Factura">Factura</option>
-              <option value="Recibo">Recibo</option>
+              <option value="factura">Factura</option>
+              <option value="recibo">Recibo</option>
             </select>
           ),
         },
@@ -142,21 +192,10 @@ export default function InvoicesPage() {
           ),
         },
       ]}
-      renderActions={(item: Invoice) => (
-        <>
-          <Link
-            href={`/admin/invoices/${item.id}`}
-            className="text-blue-600 hover:underline text-sm mr-2"
-          >
-            Ver
-          </Link>
-          <button
-            onClick={() => dialog.alert('PDF descargado', { variant: 'success', title: 'Listo' })}
-            className="text-green-600 hover:underline text-sm"
-          >
-            PDF
-          </button>
-        </>
+      renderActions={(item: Sale) => (
+        <Link href={`/admin/invoices/${item.id}`} className="text-blue-600 hover:underline text-sm">
+          Ver detalle
+        </Link>
       )}
     >
       {null}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAlertDialog } from '../../components/AlertDialogProvider';
+import { formatCurrency } from '../../../../lib/formatCurrency';
 
 export default function CloseCashPage() {
   const dialog = useAlertDialog();
@@ -18,8 +19,8 @@ export default function CloseCashPage() {
   };
 
   const totalSales = 1845.97; // Simulado: ventas del día
-  const expectedCash = (totalSales * 0.6).toFixed(2); // 60% en efectivo
-  const difference = (parseFloat(cashAmount) - parseFloat(expectedCash)).toFixed(2);
+  const expectedCash = formatCurrency((totalSales * 0.6)); // 60% en efectivo
+  const difference = formatCurrency((parseFloat(cashAmount) - parseFloat(expectedCash)));
 
   return (
     <div className="p-6 max-w-2xl mx-auto">

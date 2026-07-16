@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAlertDialog } from '../../components/AlertDialogProvider';
+import { formatCurrency } from '../../../../lib/formatCurrency';
 
 // Datos simulados
 const salesByHour = [
@@ -105,7 +106,7 @@ export default function ReportPage() {
       });
 
       const finalY = (doc as any).lastAutoTable.finalY || 35;
-      doc.text(`Total Ventas: $${totalSales.toFixed(2)}`, 14, finalY + 10);
+      doc.text(`Total Ventas: $${formatCurrency(totalSales)}`, 14, finalY + 10);
 
       doc.save(`informe_turno_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
@@ -326,7 +327,7 @@ const printReport = () => {
               ))}
             </div>
             <div className="border-t mt-4 pt-2 font-bold">
-              Total: ${totalSales.toFixed(2)}
+              Total: ${formatCurrency(totalSales)}
             </div>
           </div>
 
@@ -340,7 +341,7 @@ const printReport = () => {
                     <p className="font-medium text-black">{product.name}</p>
                     <p className="text-gray-600">Unidades: {product.units}</p>
                   </div>
-                  <span className="font-semibold">${product.revenue.toFixed(2)}</span>
+                  <span className="font-semibold">${formatCurrency(product.revenue)}</span>
                 </div>
               ))}
             </div>
@@ -356,7 +357,7 @@ const printReport = () => {
               <p className="text-sm text-gray-600">Transacciones</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-black">${totalSales.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-black">${formatCurrency(totalSales)}</p>
               <p className="text-sm text-gray-600">Total Vendido</p>
             </div>
             <div>
@@ -364,7 +365,7 @@ const printReport = () => {
               <p className="text-sm text-gray-600">Productos Únicos</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-black">{avgTicket.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-black">{formatCurrency(avgTicket)}</p>
               <p className="text-sm text-gray-600">Promedio por Ticket</p>
             </div>
           </div>
@@ -416,14 +417,14 @@ const printReport = () => {
         <tr key={i}>
           <td>{p.name}</td>
           <td>{p.units}</td>
-          <td>${p.revenue.toFixed(2)}</td>
+          <td>${formatCurrency(p.revenue)}</td>
         </tr>
       ))}
     </tbody>
   </table>
 
   <p style={{ fontWeight: 'bold', marginTop: '15px' }}>
-    Total Ventas: ${totalSales.toFixed(2)} | Transacciones: {totalTransactions} | Promedio: ${avgTicket.toFixed(2)}
+    Total Ventas: ${formatCurrency(totalSales)} | Transacciones: {totalTransactions} | Promedio: ${formatCurrency(avgTicket)}
   </p>
 </div>
     </>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { applyMaxOpacity, PASTEL_BANNER_TEXT_COLOR } from '../lib/colorUtils';
 import { useAlertDialog } from './admin/components/AlertDialogProvider';
+import { formatCurrency } from '../lib/formatCurrency';
 
 type Product = {
   id: number;
@@ -331,20 +332,20 @@ export default function Home() {
                   }}
                 >
                   {banner.discount_text_top && (
-                    <p style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>
+                    <p style={{ fontSize: 'clamp(14px, 4vw, 28px)', fontWeight: 800, marginBottom: '4px' }}>
                       {banner.discount_text_top}
                     </p>
                   )}
-                  <p style={{ fontSize: '32px', fontWeight: 'bold' }}>
+                  <p style={{ fontSize: 'clamp(16px, 5vw, 32px)', fontWeight: 'bold' }}>
                     {banner.title}
                   </p>
                   {banner.subtitle && (
-                    <p style={{ fontSize: '20px', fontWeight: 'normal', marginTop: '4px' }}>
+                    <p style={{ fontSize: 'clamp(12px, 3vw, 20px)', fontWeight: 'normal', marginTop: '4px' }}>
                       {banner.subtitle}
                     </p>
                   )}
                   {banner.discount_text_bottom && (
-                    <p style={{ fontSize: '16px', fontWeight: 600, marginTop: '8px' }}>
+                    <p style={{ fontSize: 'clamp(11px, 2.5vw, 16px)', fontWeight: 600, marginTop: '8px' }}>
                       {banner.discount_text_bottom}
                     </p>
                   )}
@@ -360,8 +361,8 @@ export default function Home() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '40px',
-                    padding: '0 60px',
+                    gap: 'clamp(12px, 4vw, 40px)',
+                    padding: '0 clamp(16px, 5vw, 60px)',
                     backgroundColor: banner.background_color
                       ? applyMaxOpacity(banner.background_color)
                       : '#fff',
@@ -451,7 +452,7 @@ export default function Home() {
                   <div className="p-6 flex-1">
                     <h3 className="text-xl font-semibold text-gray-800">{product.name}</h3>
                     <p className="text-gray-600 mt-1">{product.description}</p>
-                    <p className="text-2xl font-bold text-blue-600 mt-2">${product.price.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-blue-600 mt-2">${formatCurrency(product.price)}</p>
                   </div>
 
                   {/* Cantidad y botón Añadir */}
@@ -492,19 +493,32 @@ export default function Home() {
 
       {/* Modal del Carrito */}
       {isCartOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900">Tu Carrito</h3>
-                <button
-                  onClick={clearCart}
-                  className="px-3 py-1 text-red-600 hover:text-red-800 text-sm font-medium border border-gray-300 bg-white rounded hover:bg-gray-50 transition"
-                  title="Vaciar todo el carrito"
-                >
-                  Vaciar todo
-                </button>
-              </div>
+        <div className="fixed inset-0 z-50 bg-white sm:bg-black sm:bg-opacity-50 sm:flex sm:items-center sm:justify-center sm:p-4">
+          <div className="bg-white h-full sm:h-auto sm:rounded-xl sm:max-w-md w-full sm:max-h-[90vh] overflow-y-auto flex flex-col">
+            {/* Encabezado fijo arriba */}
+            <div className="sticky top-0 bg-white border-b px-5 py-4 flex justify-between items-center z-10">
+              <h3 className="text-xl font-bold text-blue-700">Carrito de compras</h3>
+              <button
+                onClick={() => setIsCartOpen(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-5 flex-1">
+              {cart.length > 0 && (
+                <div className="flex justify-end mb-3">
+                  <button
+                    onClick={clearCart}
+                    className="px-3 py-1 text-red-600 hover:text-red-800 text-sm font-medium border border-gray-300 bg-white rounded hover:bg-gray-50 transition"
+                    title="Vaciar todo el carrito"
+                  >
+                    Vaciar todo
+                  </button>
+                </div>
+              )}
 
               {cart.length === 0 ? (
                 <p className="text-gray-700">Tu carrito está vacío.</p>
@@ -515,96 +529,104 @@ export default function Home() {
                     if (!product) return null;
 
                     return (
-                      <li key={item.id} className="flex flex-col border-b pb-3">
-                        {/* Producto */}
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <span className="font-medium text-gray-900">{product.name}</span>
-                            <p className="text-sm text-gray-500">${product.price.toFixed(2)} c/u</p>
-                          </div>
-                          {/* Botón eliminar individual */}
-                          <div className="relative ml-2 group">
-                            <button
-                              onClick={() => removeFromCart(item.id)}
-                              className="w-6 h-6 bg-red-500 hover:bg-red-600 text-white text-xs flex items-center justify-center rounded-full transition"
-                            >
-                              ✕
-                            </button>
-                            <span className="absolute hidden group-hover:flex -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                              Quitar
-                            </span>
-                          </div>
+                      <li key={item.id} className="border rounded-xl p-3 flex gap-3">
+                        {/* Miniatura */}
+                        <div className="w-16 h-16 flex-shrink-0 rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
+                          {product.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <span className="text-2xl text-gray-300">📦</span>
+                          )}
                         </div>
 
-                        {/* Cantidad */}
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center space-x-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-medium text-gray-900 leading-tight">{product.name}</span>
                             <button
-                              onClick={async () => {
-                                if (item.quantity > 1) {
-                                  // Reduce cantidad
-                                  await supabase
-                                    .from('cart_items')
-                                    .update({ quantity: item.quantity - 1 })
-                                    .eq('id', item.id);
-                                  setCart(cart.map(c =>
-                                    c.id === item.id ? { ...c, quantity: c.quantity - 1 } : c
-                                  ));
-                                } else {
-                                  // Si es 1, eliminar
-                                  await removeFromCart(item.id);
-                                }
-                              }}
-                              className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded text-gray-600 hover:bg-gray-100"
+                              onClick={() => removeFromCart(item.id)}
+                              className="flex-shrink-0 text-gray-400 hover:text-red-600 transition"
+                              title="Quitar del carrito"
+                              aria-label="Quitar del carrito"
                             >
-                              −
-                            </button>
-                            <span className="w-8 text-center text-gray-900 font-medium">{item.quantity}</span>
-                            <button
-                              onClick={async () => {
-                                await supabase
-                                  .from('cart_items')
-                                  .update({ quantity: item.quantity + 1 })
-                                  .eq('id', item.id);
-                                setCart(cart.map(c =>
-                                  c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c
-                                ));
-                              }}
-                              className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded text-gray-600 hover:bg-gray-100"
-                            >
-                              +
+                              🗑️
                             </button>
                           </div>
-                          <span className="font-semibold text-sm text-gray-900">
-                            ${(product.price * item.quantity).toFixed(2)}
-                          </span>
+
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center border border-gray-300 rounded-full overflow-hidden">
+                              <button
+                                onClick={async () => {
+                                  if (item.quantity > 1) {
+                                    await supabase
+                                      .from('cart_items')
+                                      .update({ quantity: item.quantity - 1 })
+                                      .eq('id', item.id);
+                                    setCart(cart.map(c =>
+                                      c.id === item.id ? { ...c, quantity: c.quantity - 1 } : c
+                                    ));
+                                  } else {
+                                    await removeFromCart(item.id);
+                                  }
+                                }}
+                                className="w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-100"
+                              >
+                                ‹
+                              </button>
+                              <span className="w-7 text-center text-gray-900 font-medium text-sm">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={async () => {
+                                  await supabase
+                                    .from('cart_items')
+                                    .update({ quantity: item.quantity + 1 })
+                                    .eq('id', item.id);
+                                  setCart(cart.map(c =>
+                                    c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c
+                                  ));
+                                }}
+                                className="w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-100"
+                              >
+                                ›
+                              </button>
+                            </div>
+                            <span className="font-bold text-gray-900">
+                              ${formatCurrency((product.price * item.quantity))}
+                            </span>
+                          </div>
                         </div>
                       </li>
                     );
                   })}
                 </ul>
               )}
+            </div>
 
-              {/* Total */}
-              <div className="border-t pt-4 mt-4 font-bold text-gray-900">
-                Total: ${total.toFixed(2)}
+            {/* Total + acciones, fijo abajo */}
+            <div className="sticky bottom-0 bg-white border-t px-5 py-4 space-y-4">
+              <div className="flex justify-between items-baseline">
+                <span className="text-lg font-bold text-gray-900">Total:</span>
+                <span className="text-2xl font-bold text-blue-700">${formatCurrency(total)}</span>
               </div>
 
-              {/* Botones */}
-              <div className="flex space-x-2 mt-6">
-                <button
-                  onClick={() => setIsCartOpen(false)}
-                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition-colors duration-200"
-                >
-                  Seguir comprando
-                </button>
-                <button
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors duration-200"
-                  disabled={cart.length === 0}
-                >
-                  Pagar
-                </button>
-              </div>
+              <button
+                disabled={cart.length === 0}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white py-3.5 rounded-lg font-bold tracking-wide uppercase transition-colors duration-200"
+              >
+                Iniciar Compra
+              </button>
+
+              <button
+                onClick={() => setIsCartOpen(false)}
+                className="w-full text-center text-gray-600 hover:text-gray-900 text-sm underline"
+              >
+                Ver más productos
+              </button>
             </div>
           </div>
         </div>
@@ -679,7 +701,7 @@ export default function Home() {
             {/* Contenido inferior */}
             <div className="p-6 flex-1 flex flex-col">
               <h3 className="text-2xl font-bold text-gray-800 mb-2">{selectedProduct.name}</h3>
-              <p className="text-3xl font-bold text-blue-600 mb-4">${selectedProduct.price.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-blue-600 mb-4">${formatCurrency(selectedProduct.price)}</p>
 
               <div className="mb-4 flex-1 overflow-y-auto pr-2">
                 <h4 className="font-semibold text-gray-800 mb-2">Características:</h4>

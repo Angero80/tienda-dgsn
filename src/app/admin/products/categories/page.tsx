@@ -60,9 +60,12 @@ export default function CategoriesPage() {
     };
 
     const selectOption = (category: Category) => {
-        setSearch(category.name);
-        setForm({ name: category.name });
-        setFiltered(categories);
+        // Ya existe: no hay nada que crear, cerramos directo.
+        setIsModalOpen(false);
+        setEditing(null);
+        setForm({ name: '' });
+        setSearch('');
+        setFiltered([]);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -151,35 +154,33 @@ export default function CategoriesPage() {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editing ? "Editar Categoría" : "Nueva Categoría"}>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-white mb-1">Nombre</label>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={search}
-                                onChange={handleSearch}
-                                onFocus={() => setFiltered(categories)}
-                                className="w-full p-2 bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                                placeholder="Buscar o escribir nueva categoría..."
-                                autoComplete="off"
-                            />
-                            {search && (
-                                <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-auto">
-                                    {filtered.length === 0 ? (
-                                        <li className="p-2 text-gray-500 text-sm">No se encontraron resultados</li>
-                                    ) : (
-                                        filtered.map((cat) => (
-                                            <li
-                                                key={cat.id}
-                                                onClick={() => selectOption(cat)}
-                                                className="p-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-800"
-                                            >
-                                                {cat.name}
-                                            </li>
-                                        ))
-                                    )}
-                                </ul>
-                            )}
-                        </div>
+                        <label className="block text-sm font-medium text-gray-800 mb-1">Nombre</label>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={handleSearch}
+                            onFocus={() => setFiltered(categories)}
+                            className="w-full p-2 bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                            placeholder="Buscar o escribir nueva categoría..."
+                            autoComplete="off"
+                        />
+                        {search && (
+                            <ul className="mt-1 w-full bg-white border border-gray-300 rounded shadow max-h-40 overflow-auto">
+                                {filtered.length === 0 ? (
+                                    <li className="p-2 text-gray-500 text-sm">No se encontraron resultados</li>
+                                ) : (
+                                    filtered.map((cat) => (
+                                        <li
+                                            key={cat.id}
+                                            onClick={() => selectOption(cat)}
+                                            className="p-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-800"
+                                        >
+                                            {cat.name}
+                                        </li>
+                                    ))
+                                )}
+                            </ul>
+                        )}
                     </div>
                     <div className="flex space-x-2 pt-4">
                         <button

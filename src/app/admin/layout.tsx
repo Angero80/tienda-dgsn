@@ -315,6 +315,16 @@ export default function AdminLayout({
             {!isCollapsed && <span className="ml-3">Facturación</span>}
           </Link>
 
+          {/* Notas Crédito */}
+          <Link
+            href="/admin/credit-notes"
+            className={`flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition
+            ${isCollapsed ? 'justify-center h-12' : 'justify-start'}`}
+          >
+            <FileText className="w-5 h-5" />
+            {!isCollapsed && <span className="ml-3">Notas Crédito</span>}
+          </Link>
+
 {/* Configuración */}
 <div>
   <button
@@ -350,6 +360,20 @@ export default function AdminLayout({
       >
         <FileCheck2 className="w-4 h-4 mr-3 text-green-400" />
         Resoluciones
+      </Link>
+      <Link
+        href="/admin/config/credit-notes-resolutions"
+        className="flex items-center px-6 py-2 text-gray-300 hover:bg-gray-600 text-sm"
+      >
+        <FileCheck2 className="w-4 h-4 mr-3 text-orange-400" />
+        Resoluciones N. Crédito
+      </Link>
+      <Link
+        href="/admin/config/taxes"
+        className="flex items-center px-6 py-2 text-gray-300 hover:bg-gray-600 text-sm"
+      >
+        <DollarSign className="w-4 h-4 mr-3 text-emerald-400" />
+        Impuestos
       </Link>
       <Link
         href="/admin/config/equivalents"
